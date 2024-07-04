@@ -3,6 +3,8 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cyvcf2" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cyvcf2/htslib" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cyvcf2/htslib/htscodecs" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/htslib" vcs="Git" />
   </component>
 </project>
