@@ -1,27 +1,42 @@
-import vcf
+from cyvcf2 import VCF
 
-def read_vcf(vcf_file):
-    vcf_reader = vcf.Reader(open(vcf_file), "r")
+vcf_file = "test.vep.vcf"
 
-    for record in vcf_reader:
-        print(f"Chromosome: {record.CHROM}")
-        print(f"Position: {record.POS}")
-        print(f"Reference: {record.REF}")
-        print(f"Alternate: {record.ALT}")
-        print(f"Quality: {record.QUAL}")
-        print(f"Filter: {record.FILTER}")
-        print(f"ID: {record.ID}")
-        print(f"Number of Samples: {len(record.samples)}\n")
-        for sample in record.samples:
-            genotype = sample.gt_bases  # Genotype (e.g., 'A/G', 'T/T')
-            genotype_alleles = sample.gt_alleles  # Allele indices (e.g., [0, 1])
-            other_fields = sample.data  # Access other fields (AD, DP, etc.)
+vcf = VCF(vcf_file)
 
-            # Process the extracted data
-            print(f"Sample: {sample.sample}, Genotype: {genotype}")
-            print(f"Genotype Alleles: {genotype_alleles}")
-            print(f"Other Fields: {other_fields}")
+# Header Information
+print("Samples:", vcf.samples)
+
+# Variant Iteration
+for variant in vcf:
+    # Basic Variant Info
+    chrom, pos, ref, alt = variant.CHROM, variant.POS, variant.REF, variant.ALT
+    print("Chrom:", chrom, "| Pos:", pos, "| Ref:", ref, "| Alt:", alt)
+    print("ID:", variant.ID)
+    print("QUALITY:", variant.QUAL)
+    print("FILTER:", variant.FILTER)
+    print(variant.FORMAT)
+
+    # dp_values = variant.format('DP')  # Array of DP values for each sample
+    # for i, sample in enumerate(vcf.samples):
+    #     print(f"Sample {sample} - DP: {dp_values[i]}")
+
+    print()
+
+    # INFO Fields (Example: AC - Allele Count)
+    ac_values = variant.INFO.get('AC')
+    print(f"Allele Counts: {ac_values}")
+
+    # Custom Fields
+    ad_values = variant.format('AD')
+    af_values = variant.format('AF')
+    # an_values = variant.INFO.get('AN')
+    gt_values = variant.genotypes[0]
+    for i, sample in enumerate(vcf.samples):
+        print(f"Sample {sample}")
+        print(f"AD: {ad_values[i]}")
+        print(f"AF: {af_values[i]}")
+        # print(f"AN: {an_values[i]}")
+        print(f"GT: {gt_values[i]}")
 
 
-if __name__ == '__main__':
-    read_vcf("test.vep.vcf")

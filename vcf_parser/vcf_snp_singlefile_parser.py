@@ -49,7 +49,7 @@ class vcf_snp_singlefile_parser(EsInit):
             while (alt[0] == ref[0] and min(len(alt), len(ref)) > 1):
                 alt = alt[1:]
                 ref = ref[1:]
-                pos += 1
+                pos += 1+
             return pos, ref, alt
 
     def file_show(self):
