@@ -23,20 +23,39 @@ for variant in vcf:
 
     print()
 
-    # INFO Fields (Example: AC - Allele Count)
     ac_values = variant.INFO.get('AC')
+    an_values = variant.INFO.get('AN')
+    end_values = variant.INFO.get('END')
+    fs_values = variant.INFO.get('FS')
+    lod_values = variant.INFO.get('LOD')
+    mq_values = variant.INFO.get('MQ')
+    qd_values = variant.INFO.get('QD')
+    sor_values = variant.INFO.get('SOR')
+    nml_values = variant.INFO.get('NML')
+    fgt_values = variant.INFO.get('FGT')
+
+
     print(f"Allele Counts: {ac_values}")
+    print(f"Allele Numbers: {an_values}")
+    print(f"End: {end_values}")
+    print(f"FS: {fs_values}")
+    print(f"LOD: {lod_values}")
+    print(f"MQ: {mq_values}")
+    print(f"QD: {qd_values}")
+    print(f"SOR: {sor_values}")
+    print(f"NML: {nml_values}")
+    print(f"FGT: {fgt_values}")
+
+    print()
 
     # Custom Fields
     ad_values = variant.format('AD')
     af_values = variant.format('AF')
-    # an_values = variant.INFO.get('AN')
     gt_values = variant.genotypes[0]
     for i, sample in enumerate(vcf.samples):
         print(f"Sample {sample}")
         print(f"AD: {ad_values[i]}")
         print(f"AF: {af_values[i]}")
-        # print(f"AN: {an_values[i]}")
         print(f"GT: {gt_values[i]}")
 
 
