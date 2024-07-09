@@ -1,4 +1,5 @@
 services:
+## KAFKA
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
@@ -43,6 +44,7 @@ services:
       timeout: 5s
       retries: 5
 
+## POSTGRES
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -50,7 +52,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: test
       POSTGRES_DB: vcf
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
@@ -58,15 +60,20 @@ services:
       timeout: 5s
       retries: 5
 
+## SPARK
 #  spark-master:
 #    image: bitnami/spark:latest
+#    container_name: spark-master
 #    command: bin/spark-class org.apache.spark.deploy.master.Master
 #    ports:
 #      - "9090:8080"
 #      - "7077:7077"
+#    environment:
+#      SPARK_MODE: master
 #
 #  spark-worker:
 #    image: bitnami/spark:latest
+#    container_name: spark-worker
 #    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
 #    depends_on:
 #      - spark-master
@@ -76,6 +83,7 @@ services:
 #      SPARK_WORKER_MEMORY: 1g
 #      SPARK_MASTER_URL: spark://spark-master:7077
 
+## ELASTICSEARCH
   es_master:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: es_master
@@ -160,16 +168,21 @@ services:
     depends_on:
       - es_master
 
+## AIRFLOW
   airflow:
-    image: apache/airflow:2.5.1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: airflow_custom:latest
     container_name: airflow
     restart: always
     depends_on:
       - postgres
+      - broker  # Depends on Kafka broker service
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:postgres@postgres:5432/vcf"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:test@postgres:5432/vcf"
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
@@ -185,6 +198,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    entrypoint:
+      - bash
+      - -c
+      - "pip install cyvcf2 && airflow webserver"
+
 
   airflow_scheduler:
     image: apache/airflow:2.5.1
@@ -195,7 +213,7 @@ services:
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:postgres@postgres:5432/vcf"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:test@postgres:5432/vcf"
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
@@ -203,7 +221,12 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
     command: "scheduler"
+    entrypoint:
+      - bash
+      - -c
+      - "pip install cyvcf2 && airflow scheduler"
 
   airflow_init:
     image: apache/airflow:2.5.1
@@ -213,7 +236,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"  # Disable example DAGs
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor" # Simple executor
       AIRFLOW__WEBSERVER__ENABLE_CSRF: "False"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:postgres@postgres:5432/vcf" # Database connection
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:test@postgres:5432/vcf" # Database connection
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM=" # Use an environment variable for the key
     command:
       - bash
