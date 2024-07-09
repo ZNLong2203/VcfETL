@@ -1,0 +1,60 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    volumes:
+      - zookeeper_data:/bitnami
+
+  kafka:
+    image: bitnami/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT://localhost:29092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    depends_on:
+      - zookeeper
+    volumes:
+      - kafka_data:/bitnami
+
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  airflow:
+    image: apache/airflow:2.1.2
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW_PIP_INSTALL_FLAGS="--constraint https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+      - _PIP_ADDITIONAL_REQUIREMENTS="apache-airflow-providers-apache-kafka"
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      - AIRFLOW__WEBSERVER__DAG_DEFAULT_VIEW=tree
+      - AIRFLOW__WEBSERVER__NAVBAR_COLOR=#FF0000
+      - AIRFLOW__WEBSERVER__NAVBAR_ICON="fa-globe"
+      - AIRFLOW__WEBSERVER__NAVBAR_HOME="http://example.com"
+      - AIRFLOW__WEBSERVER__NAVBAR_TITLE="Airflow"
+      - AIRFLOW__WEBSERVER__NAVBAR_BASE_COLOR="#FF0000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./dags:/opt/airflow/dags
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+  postgres_data:
