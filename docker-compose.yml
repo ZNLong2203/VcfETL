@@ -23,38 +23,46 @@ services:
     volumes:
       - kafka_data:/bitnami
 
-  postgres:
-    image: postgres:latest
-    environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  # postgres:
+  #   image: postgres:latest
+  #   environment:
+  #     - POSTGRES_USER=airflow
+  #     - POSTGRES_PASSWORD=airflow
+  #     - POSTGRES_DB=airflow
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
 
-  airflow:
+  airflow-webserver:
     image: apache/airflow:2.1.2
-    ports:
-      - "8080:8080"
     environment:
-      - AIRFLOW_PIP_INSTALL_FLAGS="--constraint https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
-      - _PIP_ADDITIONAL_REQUIREMENTS="apache-airflow-providers-apache-kafka"
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@localhost:5432/airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
-      - AIRFLOW__WEBSERVER__DAG_DEFAULT_VIEW=tree
-      - AIRFLOW__WEBSERVER__NAVBAR_COLOR=#FF0000
-      - AIRFLOW__WEBSERVER__NAVBAR_ICON="fa-globe"
-      - AIRFLOW__WEBSERVER__NAVBAR_HOME="http://example.com"
-      - AIRFLOW__WEBSERVER__NAVBAR_TITLE="Airflow"
-      - AIRFLOW__WEBSERVER__NAVBAR_BASE_COLOR="#FF0000"
     depends_on:
-      - postgres
+      - airflow-scheduler
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    command: webserver
 
+  airflow-scheduler:
+    image: apache/airflow:2.1.2
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@localhost:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    depends_on:
+      - airflow-webserver
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler
 volumes:
   zookeeper_data:
   kafka_data:
-  postgres_data:
+  # postgres_data:
