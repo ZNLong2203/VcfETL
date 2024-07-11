@@ -1,10 +1,10 @@
 import os
 import json
 import psycopg2
-import Elasticsearch
 from cyvcf2 import VCF
 from airflow import DAG
 from datetime import datetime, timedelta
+from elasticsearch import Elasticsearch
 from airflow.operators.python_operator import PythonOperator
 from confluent_kafka import Producer, Consumer
 

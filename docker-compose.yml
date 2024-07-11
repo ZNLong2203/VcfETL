@@ -188,7 +188,7 @@ services:
     entrypoint:
       - bash
       - -c
-      - "pip install cyvcf2 && pip install confluent_kafka && pip install ElasticSearch && airflow webserver"
+      - "pip install cyvcf2 && pip install confluent_kafka && pip install Elasticsearch && airflow webserver"
 
   airflow_scheduler:
     image: apache/airflow:2.5.1
@@ -212,7 +212,7 @@ services:
     entrypoint:
       - bash
       - -c
-      - "pip install cyvcf2 && pip install confluent_kafka && pip install ElasticSearch && airflow scheduler"
+      - "pip install cyvcf2 && pip install confluent_kafka && pip install Elasticsearch && airflow scheduler"
 
   airflow_init:
     image: apache/airflow:2.5.1
