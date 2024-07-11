@@ -155,19 +155,6 @@ services:
         soft: -1
         hard: -1
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.13.0
-    container_name: kibana
-    networks:
-      - esnet
-    ports:
-      - 5601:5601
-    environment:
-      - ELASTICSEARCH_HOSTS=http://es_master:9200
-      - "xpack.security.enabled=false"
-    depends_on:
-      - es_master
-
 ## AIRFLOW
   airflow:
     build:
@@ -201,8 +188,7 @@ services:
     entrypoint:
       - bash
       - -c
-      - "pip install cyvcf2 && airflow webserver"
-
+      - "pip install cyvcf2 && pip install confluent_kafka && pip install ElasticSearch && airflow webserver"
 
   airflow_scheduler:
     image: apache/airflow:2.5.1
@@ -226,7 +212,7 @@ services:
     entrypoint:
       - bash
       - -c
-      - "pip install cyvcf2 && airflow scheduler"
+      - "pip install cyvcf2 && pip install confluent_kafka && pip install ElasticSearch && airflow scheduler"
 
   airflow_init:
     image: apache/airflow:2.5.1

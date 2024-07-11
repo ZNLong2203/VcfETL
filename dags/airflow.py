@@ -1,11 +1,42 @@
-import json
-from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
-import psycopg2
 import os
+import json
+import psycopg2
+import Elasticsearch
 from cyvcf2 import VCF
+from airflow import DAG
+from datetime import datetime, timedelta
+from airflow.operators.python_operator import PythonOperator
+from confluent_kafka import Producer, Consumer
 
+# Define the function to produce messages to Kafka
+def produce_message(**kwargs):
+    producer = Producer({
+        'bootstrap.servers': 'broker:29092',
+    })
+
+    def delivery_report(err, msg):
+        if err is not None:
+            print(f"Message delivery failed: {err}")
+        else:
+            print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+
+    vcf_file_path = kwargs['vcf_file']
+
+    try:
+        # Read the content of the VCF file
+        with open(vcf_file_path, 'r') as file:
+            vcf_content = file.read()
+
+        # Produce the message
+        producer.produce(
+            'vcf-topic',
+            key='vcf',
+            value=vcf_content,
+            callback=delivery_report
+        )
+        producer.flush()
+    except Exception as e:
+        print(f"Error producing message: {e}")
 
 # Define the function to create tables
 def create_table(**kwargs):
@@ -50,7 +81,6 @@ def create_table(**kwargs):
     cur.close()
     conn.close()
 
-
 # Define the function to insert variants
 def insert_variant(**kwargs):
     conn = psycopg2.connect(
@@ -64,6 +94,25 @@ def insert_variant(**kwargs):
     vcf_file = kwargs['vcf_file']
     vcf = VCF(vcf_file)
 
+    # consumer = Consumer({
+    #     'bootstrap.servers': 'localhost:9092',
+    #     'group.id': 'vcf-consumer',
+    #     'auto.offset.reset': 'earliest',
+    #     'enable.auto.commit': 'false',
+    # })
+    # consumer.subscribe(['vcf-topic'])
+    #
+    # while True:
+    #     msg = consumer.poll(timeout=1.0)
+    #     if msg is None:
+    #         continue
+    #     if msg.error():
+    #         print(f"Consumer error: {msg.error()}")
+    #         continue
+    #
+    #     vcf_file = msg.value().decode('utf-8')
+    #     vcf = VCF(vcf_file)
+
     for variant in vcf:
         chrom, pos, ref, alt = variant.CHROM, variant.POS, variant.REF, variant.ALT
         qual, filter, info = variant.QUAL, variant.FILTER, dict(variant.INFO)
@@ -74,6 +123,7 @@ def insert_variant(**kwargs):
         cur.execute("""
             INSERT INTO variant(id, name, chrom, pos, ref, alt, qual, filter)
             VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
         """, (variant.ID, variant.ID, chrom, pos, ref, alt, qual, filter))
         conn.commit()
 
@@ -92,12 +142,12 @@ def insert_variant(**kwargs):
             cur.execute("""
                 INSERT INTO format(variant_id, sample_id, allelic_depth, allele_frequency, genotype)
                 VALUES(%s, %s, %s, %s, %s)
+                ON CONFLICT (variant_id, sample_id) DO NOTHING
             """, (variant.ID, sample, ad_values, af_values, gt_values))
             conn.commit()
 
     cur.close()
     conn.close()
-
 
 # Define default arguments for the DAG
 default_args = {
@@ -119,6 +169,13 @@ dag = DAG(
 )
 
 # Define tasks in the DAG using PythonOperator
+task_produce_message = PythonOperator(
+    task_id='produce_message_task',
+    python_callable=produce_message,
+    op_kwargs={'vcf_file': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test.vep.vcf')},
+    dag=dag,
+)
+
 task_create_table = PythonOperator(
     task_id='create_table_task',
     python_callable=create_table,
@@ -133,4 +190,4 @@ task_insert_variant = PythonOperator(
 )
 
 # Set task dependencies
-task_create_table >> task_insert_variant
+task_produce_message >> task_create_table >> task_insert_variant
