@@ -149,6 +149,51 @@ def insert_variant(**kwargs):
     cur.close()
     conn.close()
 
+def insert_variant_elasticsearch(**kwargs):
+    conf = {
+        'bootstrap.servers': 'localhost:9092',
+        'group.id': 'vcf-consumer-group',
+        'auto.offset.reset': 'earliest'
+    }
+
+    es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+
+    consumer = Consumer(conf)
+    consumer.subscribe(['vcf-topic'])
+
+    try:
+        while True:
+            msg = consumer.poll(1.0)
+
+            if msg is None:
+                continue
+            if msg.error():
+                print(f"Consumer error: {msg.error()}")
+                continue
+
+            vcf_data = msg.value().decode('utf-8')
+            vcf = VCF(vcf_data)
+
+            for variant in vcf:
+                variant_dict = {
+                    'id': variant.ID,
+                    'name': variant.ID,
+                    'chrom': variant.CHROM,
+                    'pos': variant.POS,
+                    'ref': variant.REF,
+                    'alt': variant.ALT,
+                    'qual': variant.QUAL,
+                    'filter': variant.FILTER,
+                    'info': dict(variant.INFO)
+                }
+
+                es.index(index='variants', id=variant.ID, document=variant_dict)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        consumer.close()
+
 # Define default arguments for the DAG
 default_args = {
     'owner': 'airflow',
@@ -189,5 +234,11 @@ task_insert_variant = PythonOperator(
     dag=dag,
 )
 
+task_insert_variant_elasticsearch = PythonOperator(
+    task_id='insert_variant_elasticsearch_task',
+    python_callable=insert_variant_elasticsearch,
+    dag=dag,
+)
+
 # Set task dependencies
-task_produce_message >> task_create_table >> task_insert_variant
+task_produce_message >> task_create_table >> task_insert_variant >> task_insert_variant_elasticsearch
