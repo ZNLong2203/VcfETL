@@ -1,12 +1,13 @@
 import os
 import json
 import psycopg2
+import tempfile
 from cyvcf2 import VCF
 from airflow import DAG
 from datetime import datetime, timedelta
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, exceptions
 from airflow.operators.python_operator import PythonOperator
-from confluent_kafka import Producer, Consumer
+from confluent_kafka import Producer, Consumer, KafkaException
 
 # Define the function to produce messages to Kafka
 def produce_message(**kwargs):
@@ -68,20 +69,21 @@ def create_table(**kwargs):
 
         CREATE TABLE IF NOT EXISTS format(
             id serial PRIMARY KEY,
-            variant_id TEXT,
-            sample_id TEXT,
-            allelic_depth TEXT,
+            variant_id VARCHAR(255),
+            sample_id VARCHAR(255),
+            allelic_depth VARCHAR(255),
             allele_frequency FLOAT,
             genotype VARCHAR(255),
             FOREIGN KEY(variant_id) REFERENCES variant(id),
-            FOREIGN KEY(sample_id) REFERENCES sample(id)
+            FOREIGN KEY(sample_id) REFERENCES sample(id),
+            UNIQUE(variant_id, sample_id)
         );
     """)
     conn.commit()
     cur.close()
     conn.close()
 
-# Define the function to insert variants
+# Define the function to insert variants into PostgreSQL
 def insert_variant(**kwargs):
     conn = psycopg2.connect(
         host="postgres",
@@ -94,25 +96,6 @@ def insert_variant(**kwargs):
     vcf_file = kwargs['vcf_file']
     vcf = VCF(vcf_file)
 
-    # consumer = Consumer({
-    #     'bootstrap.servers': 'localhost:9092',
-    #     'group.id': 'vcf-consumer',
-    #     'auto.offset.reset': 'earliest',
-    #     'enable.auto.commit': 'false',
-    # })
-    # consumer.subscribe(['vcf-topic'])
-    #
-    # while True:
-    #     msg = consumer.poll(timeout=1.0)
-    #     if msg is None:
-    #         continue
-    #     if msg.error():
-    #         print(f"Consumer error: {msg.error()}")
-    #         continue
-    #
-    #     vcf_file = msg.value().decode('utf-8')
-    #     vcf = VCF(vcf_file)
-
     for variant in vcf:
         chrom, pos, ref, alt = variant.CHROM, variant.POS, variant.REF, variant.ALT
         qual, filter, info = variant.QUAL, variant.FILTER, dict(variant.INFO)
@@ -121,10 +104,10 @@ def insert_variant(**kwargs):
             variant.ID = str(cur.fetchone()[0] + 1)
 
         cur.execute("""
-            INSERT INTO variant(id, name, chrom, pos, ref, alt, qual, filter)
-            VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO variant(id, name, chrom, pos, ref, alt, qual, filter, info)
+            VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING
-        """, (variant.ID, variant.ID, chrom, pos, ref, alt, qual, filter))
+        """, (variant.ID, variant.ID, chrom, pos, ref, alt, qual, filter, json.dumps(info)))
         conn.commit()
 
         for i, sample in enumerate(vcf.samples):
@@ -149,22 +132,22 @@ def insert_variant(**kwargs):
     cur.close()
     conn.close()
 
-def insert_variant_elasticsearch(**kwargs):
+# Define the function to insert variants into Elasticsearch
+from elasticsearch import Elasticsearch, exceptions, helpers
+
+def insert_variant_elasticsearch():
     conf = {
-        'bootstrap.servers': 'localhost:9092',
+        'bootstrap.servers': 'broker:29092',
         'group.id': 'vcf-consumer-group',
         'auto.offset.reset': 'earliest'
     }
-
-    es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
-
+    es = Elasticsearch([{'host': 'es_master', 'port': 9200}])
     consumer = Consumer(conf)
     consumer.subscribe(['vcf-topic'])
 
     try:
         while True:
             msg = consumer.poll(1.0)
-
             if msg is None:
                 continue
             if msg.error():
@@ -172,27 +155,49 @@ def insert_variant_elasticsearch(**kwargs):
                 continue
 
             vcf_data = msg.value().decode('utf-8')
-            vcf = VCF(vcf_data)
 
-            for variant in vcf:
-                variant_dict = {
-                    'id': variant.ID,
-                    'name': variant.ID,
-                    'chrom': variant.CHROM,
-                    'pos': variant.POS,
-                    'ref': variant.REF,
-                    'alt': variant.ALT,
-                    'qual': variant.QUAL,
-                    'filter': variant.FILTER,
-                    'info': dict(variant.INFO)
-                }
+            # Write the VCF data to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmpfile:
+                tmpfile.write(vcf_data)
+                tmpfile_path = tmpfile.name
 
-                es.index(index='variants', id=variant.ID, document=variant_dict)
+            # Now read from the temporary file
+            try:
+                vcf = VCF(tmpfile_path)
+                actions = []
+                for variant in vcf:
+                    variant_dict = {
+                        '_index': 'variants',
+                        '_id': variant.ID if variant.ID else f'{variant.CHROM}-{variant.POS}-{variant.REF}-{variant.ALT}',
+                        '_source': {
+                            'name': variant.ID if variant.ID else f'{variant.CHROM}-{variant.POS}-{variant.REF}-{variant.ALT}',
+                            'chrom': variant.CHROM,
+                            'pos': variant.POS,
+                            'ref': variant.REF,
+                            'alt': variant.ALT,
+                            'qual': variant.QUAL,
+                            'filter': variant.FILTER,
+                            'info': dict(variant.INFO)
+                        }
+                    }
+                    actions.append(variant_dict)
+
+                if actions:
+                    helpers.bulk(es, actions)
+            finally:
+                os.remove(tmpfile_path)
 
     except KeyboardInterrupt:
         pass
+    except KafkaException as e:
+        print(f"Kafka exception: {e}")
+    except exceptions.ConnectionError as e:
+        print(f"Elasticsearch connection error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
     finally:
         consumer.close()
+
 
 # Define default arguments for the DAG
 default_args = {
@@ -209,7 +214,7 @@ default_args = {
 dag = DAG(
     'my_insert_data_dag',
     default_args=default_args,
-    description='Insert data from VCF file into PostgreSQL',
+    description='Insert data from VCF file into PostgreSQL and Elasticsearch',
     schedule_interval=timedelta(days=1),
 )
 
