@@ -60,11 +60,16 @@ def create_table(**kwargs):
                 filter VARCHAR(255),
                 info JSONB
             );
+            
+            CREATE INDEX IF NOT EXISTS idx_variant_chrom ON variant(chrom);
+            CREATE INDEX IF NOT EXISTS idx_variant_pos ON variant(pos);
     
             CREATE TABLE IF NOT EXISTS sample(
                 id TEXT PRIMARY KEY,
                 name VARCHAR(255)
             );
+            
+            CREATE INDEX IF NOT EXISTS idx_sample_name ON sample(name);
     
             CREATE TABLE IF NOT EXISTS format(
                 id serial PRIMARY KEY,
@@ -275,7 +280,7 @@ task_create_table = PythonOperator(
 )
 
 task_insert_variant_postgres = PythonOperator(
-    task_id='insert_variant_task',
+    task_id='insert_variant_postgres_task',
     python_callable=insert_variant_postgres,
     op_kwargs={'vcf_file': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test.vep.vcf')},
     dag=dag,
@@ -287,4 +292,4 @@ task_insert_variant_elasticsearch = PythonOperator(
     dag=dag,
 )
 
-task_produce_message >> task_create_table >> [task_insert_variant_postgres, task_insert_variant_elasticsearch]
+task_create_table >> task_produce_message >> [task_insert_variant_postgres, task_insert_variant_elasticsearch]
