@@ -1,25 +1,32 @@
-CREATE TABLE variant(
-    id serial PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    chrom VARCHAR(255) NOT NULL,
-    pos VARCHAR(255) NOT NULL,
-    ref VARCHAR(255) NOT NULL,
-    alt VARCHAR(255) NOT NULL,
-    qual FLOAT NOT NULL,
-    filter VARCHAR(255) NOT NULL,
-    info TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS variant(
+    id TEXT PRIMARY KEY,
+    name VARCHAR(255),
+    chrom VARCHAR(255),
+    pos VARCHAR(255),
+    ref VARCHAR(255),
+    alt VARCHAR(255),
+    qual FLOAT,
+    filter VARCHAR(255),
+    info JSONB
 );
 
-CREATE TABLE format(
-    id serial PRIMARY KEY,
-    variant_id INT NOT NULL,
-    sample_id INT NOT NULL,
-    allelic_depth FLOAT NOT NULL,
-    allele_frequency FLOAT NOT NULL,
-    genotype VARCHAR(255) NOT NULL
-);
+CREATE INDEX IF NOT EXISTS idx_variant_chrom ON variant(chrom);
+CREATE INDEX IF NOT EXISTS idx_variant_pos ON variant(pos);
 
-CREATE TABLE sample(
-    id serial PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS sample(
+    id TEXT PRIMARY KEY,
     name VARCHAR(255)
 );
+
+CREATE INDEX IF NOT EXISTS idx_sample_name ON sample(name);
+
+CREATE TABLE IF NOT EXISTS format(
+    id serial PRIMARY KEY,
+    variant_id VARCHAR(255),
+    sample_id VARCHAR(255),
+    allelic_depth VARCHAR(255),
+    allele_frequency FLOAT,
+    genotype VARCHAR(255),
+    FOREIGN KEY(variant_id) REFERENCES variant(id),
+    FOREIGN KEY(sample_id) REFERENCES sample(id),
+    UNIQUE(variant_id, sample_id)
