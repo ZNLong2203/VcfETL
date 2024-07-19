@@ -168,7 +168,6 @@ def insert_variant_elasticsearch():
                 tmpfile.write(vcf_data)
                 tmpfile_path = tmpfile.name
 
-            # Now read from the temporary file
             try:
                 vcf = VCF(tmpfile_path)
                 variant_actions = []
