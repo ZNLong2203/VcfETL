@@ -175,10 +175,12 @@ services:
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
+      PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
     ports:
       - "8080:8080"
     command: "webserver"
@@ -191,7 +193,7 @@ services:
       - esnet
 
   airflow_scheduler:
-    image: apache/airflow:2.5.1
+    image: airflow_custom:latest
     container_name: airflow_scheduler
     restart: always
     depends_on:
@@ -203,11 +205,12 @@ services:
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
+      PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-      - ./test:/opt/airflow/test
+      - ./src:/opt/airflow/src
     command: "scheduler"
     networks:
       - esnet
@@ -217,7 +220,7 @@ services:
       - "pip install cyvcf2 && pip install confluent_kafka && pip install elasticsearch && airflow scheduler"
 
   airflow_init:
-    image: apache/airflow:2.5.1
+    image: airflow_custom:latest
     depends_on:
       - postgres
     environment:
@@ -226,6 +229,7 @@ services:
       AIRFLOW__WEBSERVER__ENABLE_CSRF: "False"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:test@postgres:5432/vcf" # Database connection
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM=" # Use an environment variable for the key
+      PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     command:
       - bash
       - -c

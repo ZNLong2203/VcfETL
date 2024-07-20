@@ -30,3 +30,4 @@ CREATE TABLE IF NOT EXISTS format(
     FOREIGN KEY(variant_id) REFERENCES variant(id),
     FOREIGN KEY(sample_id) REFERENCES sample(id),
     UNIQUE(variant_id, sample_id)
+);
