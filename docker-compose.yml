@@ -164,7 +164,8 @@ services:
     restart: always
     depends_on:
       - postgres
-      - broker  # Depends on Kafka broker service
+      - broker
+      - minio
       - es_master
       - es_slave1
       - es_slave2
@@ -175,6 +176,8 @@ services:
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
+      AIRFLOW__WEBSERVER__ENABLE_CSRF: "True"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "mysecretkey"
       PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     volumes:
       - ./dags:/opt/airflow/dags
@@ -205,6 +208,8 @@ services:
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM="
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
+      AIRFLOW__WEBSERVER__ENABLE_CSRF: "True"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "mysecretkey"
       PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     volumes:
       - ./dags:/opt/airflow/dags
@@ -217,7 +222,7 @@ services:
     entrypoint:
       - bash
       - -c
-      - "pip install cyvcf2 && pip install confluent_kafka && pip install elasticsearch && airflow scheduler"
+      - "pip install cyvcf2 && pip install confluent_kafka && pip install elasticsearch && pip install minio && airflow scheduler"
 
   airflow_init:
     image: airflow_custom:latest
@@ -226,14 +231,33 @@ services:
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"  # Disable example DAGs
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor" # Simple executor
-      AIRFLOW__WEBSERVER__ENABLE_CSRF: "False"
+      AIRFLOW__WEBSERVER__ENABLE_CSRF: "True"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "mysecretkey"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://postgres:test@postgres:5432/vcf" # Database connection
       AIRFLOW__CORE__FERNET_KEY: "xV20HTLOxY-jKBQQOeS1Ww3eD-Jnpn3OxvRXp8Hz-eM=" # Use an environment variable for the key
       PYTHONPATH: "/opt/airflow/src:/opt/airflow/dags"
     command:
       - bash
       - -c
-      - airflow db init
+      - |
+        airflow db init &&
+        airflow users create -u admin -p admin -f admin -l admin -r Admin -e admin@gmail.com
+    networks:
+      - esnet
+
+  ## MinIO
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./storage:/data
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    command: server --console-address ":9001" /data
     networks:
       - esnet
 
@@ -248,7 +272,6 @@ volumes:
 networks:
   esnet:
     driver: bridge
-
 
 ## docker network create esnet
 ## docker-compose up -d --build

@@ -6,6 +6,8 @@ from src.produce_message import produce_message
 from src.create_table import create_table
 from src.insert_variant_postgres import insert_variant_postgres
 from src.insert_variant_elasticsearch import insert_variant_elasticsearch
+from minio import Minio
+
 
 # Define default arguments for the DAG
 default_args = {

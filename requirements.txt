@@ -1,4 +1,5 @@
-cyvcf2
-psycopg2-binary
-elasticsearch
-confluent_kafka
+psycopg2-binary~=2.9.9
+apache-airflow~=2.5
+cyvcf2~=0.30.4
+confluent_kafka~=1.7.0
+minio~=7.0.3
