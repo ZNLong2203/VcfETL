@@ -1,7 +1,6 @@
 import os
 from confluent_kafka import Producer
 
-# Define the function to produce messages to Kafka
 def produce_message(**kwargs):
     producer = Producer({
         'bootstrap.servers': 'broker:29092',

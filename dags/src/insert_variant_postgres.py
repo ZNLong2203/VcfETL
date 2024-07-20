@@ -1,7 +1,6 @@
 import psycopg2
 from cyvcf2 import VCF
 
-# Define the function to insert variants into PostgreSQL
 def insert_variant_postgres(**kwargs):
     conn = psycopg2.connect(
         host="postgres",

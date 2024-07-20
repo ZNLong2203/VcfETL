@@ -166,6 +166,7 @@ services:
       - postgres
       - broker
       - minio
+      - flask_event_listener
       - es_master
       - es_slave1
       - es_slave2
@@ -258,6 +259,27 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: admin123
     command: server --console-address ":9001" /data
+    networks:
+      - esnet
+  mc:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set myminio http://minio:9000 admin admin123) do echo 'waiting for minio' && sleep 5; done;
+      /usr/bin/mc mb myminio/vcf-files;
+      /usr/bin/mc event add myminio/vcf-files arn:minio:sqs::flask_event_listener:amqp
+      "
+
+  ## Flask
+  flask_event_listener:
+    build:
+      context: ./flask
+    container_name: flask_event_listener
+    restart: always
+    ports:
+      - "5000:5000"
     networks:
       - esnet
 

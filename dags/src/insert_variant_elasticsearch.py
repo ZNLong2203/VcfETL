@@ -4,7 +4,6 @@ from confluent_kafka import Consumer, KafkaException
 from elasticsearch import Elasticsearch, exceptions, helpers
 from cyvcf2 import VCF
 
-# Define the function to insert variants into Elasticsearch
 def insert_variant_elasticsearch():
     conf = {
         'bootstrap.servers': 'broker:29092',

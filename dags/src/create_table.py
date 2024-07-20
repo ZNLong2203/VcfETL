@@ -1,7 +1,5 @@
 import psycopg2
 
-
-# Define the function to create tables
 def create_table(**kwargs):
     conn = psycopg2.connect(
         host="postgres",

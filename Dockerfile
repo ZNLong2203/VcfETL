@@ -7,4 +7,3 @@ RUN pip install -r requirements.txt --verbose
 
 # Copy DAGs and src directory to the appropriate location
 COPY ./dags /opt/airflow/dags
-COPY ./src /opt/airflow/src
