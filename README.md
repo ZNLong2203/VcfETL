@@ -1,16 +1,25 @@
 # VCF ETL
 ## Tổng quan hệ thống:
-`File chính được để trong dags`
+File chính được để trong dags. Đầu tiên người dùng có thể upload file lên MinIO trong bucket landingzone, sau đó airflow sẽ thực hiện các task, 
+bao gồm: tạo bảng trong postgres, insert dữ liệu vào postgres, gửi message vào kafka, và insert dữ liệu vào elasticsearch
+rồi cuối cùng xóa file ở landingzone.
+
+![MinIO.png](img/MinIO.png)
+
+![BucketMinIO.png](img/BucketMinIO.png)
 
 ![SoDoAirflow](img/SoDoAirflow.png)
 
 ![Airflow](img/Airflow.png)
 
-## Các bước thực hiện:
-1. `create_table_task`: Tạo bảng trong postgres 
-2. `produce_message_task`: Đọc file vcf và gửi message vào kafka
-3. `insert_variant_postgres_task`: Insert dữ liệu local vào postgres
-4. `insert_variant_elasticsearch_task`: Insert dữ liệu từ kafka vào elasticsearch
+## Các task thành phần:
+1. `sensor_task`: Kiểm tra file có tồn tại trong MinIO không
+2. `download_file_task`: Download file từ MinIO về 
+3. `create_table_task`: Tạo bảng trong postgres 
+4. `produce_message_task`: Đọc file vcf và gửi message vào kafka
+5. `insert_variant_postgres_task`: Insert dữ liệu local vào postgres
+6. `insert_variant_elasticsearch_task`: Insert dữ liệu từ kafka broker vào elasticsearch
+7. `delete_file_task`: Xóa file ở landingzone trong MinIO
 
 ## Dữ liệu:
 ### Postgres:

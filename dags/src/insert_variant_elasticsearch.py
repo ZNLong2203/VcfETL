@@ -1,10 +1,11 @@
 import os
 import tempfile
+import time
 from confluent_kafka import Consumer, KafkaException
 from elasticsearch import Elasticsearch, exceptions, helpers
 from cyvcf2 import VCF
 
-def insert_variant_elasticsearch():
+def insert_variant_elasticsearch(max_duration=20):
     conf = {
         'bootstrap.servers': 'broker:29092',
         'group.id': 'vcf-consumer-group',
@@ -14,8 +15,10 @@ def insert_variant_elasticsearch():
     consumer = Consumer(conf)
     consumer.subscribe(['vcf-topic'])
 
+    start_time = time.time()
+
     try:
-        while True:
+        while time.time() - start_time < max_duration:
             msg = consumer.poll(1.0)
             if msg is None:
                 continue
@@ -95,8 +98,6 @@ def insert_variant_elasticsearch():
             finally:
                 os.remove(tmpfile_path)
 
-    except KeyboardInterrupt:
-        pass
     except KafkaException as e:
         print(f"Kafka exception: {e}")
     except exceptions.ConnectionError as e:
