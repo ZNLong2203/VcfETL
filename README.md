@@ -1,14 +1,16 @@
 # VCF ETL
 ## Tổng quan hệ thống:
-File chính được để trong dags. Đầu tiên người dùng có thể upload file lên MinIO trong bucket landingzone, sau đó airflow sẽ thực hiện các task, 
-bao gồm: tạo bảng trong postgres, insert dữ liệu vào postgres, gửi message vào kafka, và insert dữ liệu vào elasticsearch
-rồi cuối cùng xóa file ở landingzone.
+File chính được để trong dags, các cộng cụ được tạo thông qua Docker-compose và sử dụng chung một hệ thống mạng. Người dùng có thể upload file lên MinIO trong bucket landingzone, sau đó airflow sẽ thực hiện các task, lấy các
+file vcf theo cấu trúc stack rồi thực hiện các task bao gồm: tạo bảng trong postgres, insert dữ liệu vào postgres, gửi message vào kafka, 
+và insert dữ liệu vào elasticsearch rồi cuối cùng xóa file ở landingzone.
+
+![Diagram.png](img/Diagram.png)
 
 ![MinIO.png](img/MinIO.png)
 
 ![BucketMinIO.png](img/BucketMinIO.png)
 
-![SoDoAirflow](img/SoDoAirflow.png)
+![DiagramAirflow.png](img/DiagramAirflow.png)
 
 ![Airflow](img/Airflow.png)
 
