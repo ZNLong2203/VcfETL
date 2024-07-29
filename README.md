@@ -1,7 +1,7 @@
 # VCF ETL
 ## Tổng quan hệ thống:
 File chính được để trong dags, các cộng cụ được tạo thông qua Docker-compose và sử dụng chung một hệ thống mạng. Người dùng có thể upload file lên MinIO trong bucket landingzone, sau đó airflow sẽ thực hiện các task, lấy các
-file vcf theo cấu trúc stack rồi thực hiện các task bao gồm: tạo bảng trong postgres, insert dữ liệu vào postgres, gửi message vào kafka, 
+file vcf theo cấu trúc stack rồi thực hiện các task bao gồm: tạo bảng trong postgres, xử lý dữ liệu bằng python, insert dữ liệu vào postgres, gửi message vào kafka, 
 và insert dữ liệu vào elasticsearch rồi cuối cùng xóa file ở landingzone.
 
 ![Diagram.png](img/Diagram.png)
@@ -19,11 +19,18 @@ và insert dữ liệu vào elasticsearch rồi cuối cùng xóa file ở landi
 2. `download_file_task`: Download file từ MinIO về 
 3. `create_table_task`: Tạo bảng trong postgres 
 4. `produce_message_task`: Đọc file vcf và gửi message vào kafka
-5. `insert_variant_postgres_task`: Insert dữ liệu local vào postgres
-6. `insert_variant_elasticsearch_task`: Insert dữ liệu từ kafka broker vào elasticsearch
+5. `insert_variant_postgres_task`: Xử lý dữ liêu và insert dữ liệu local vào postgres
+6. `insert_variant_elasticsearch_task`: Xử lý dữ liệu và insert dữ liệu từ kafka broker vào elasticsearch
 7. `delete_file_task`: Xóa file ở landingzone trong MinIO
 
+## Ý tưởng chính:
+- Sử dụng Airflow để schedule các task
+- ETL file từ local vào postgres để lưu trữ, một số file không có variant_id sẽ đươc đánh thành `{variant.CHROM}-{variant.POS}-{variant.REF}-{variant.ALT`
+- Gửi file vcf vào kafka, và consume kafka broker để insert vào elasticsearch, nhằm mục đích tìm kiếm nhanh hơn
+
 ## Dữ liệu:
+### Raw data:
+![RawData.png](img/RawData.png)
 ### Postgres:
 ![postgresdata](img/postgresdata.png)
 ### Elasticsearch:
@@ -133,7 +140,3 @@ GET /variants/_search
 }
 
 ```
-## Ý tưởng chính:
-- Sử dụng Airflow để schedule các task
-- ETL file từ local vào postgres để lưu trữ, một số file không có variant_id sẽ đươc đánh thành `{variant.CHROM}-{variant.POS}-{variant.REF}-{variant.ALT`
-- Gửi file vcf vào kafka, và consume kafka broker để insert vào elasticsearch, nhằm mục đích tìm kiếm nhanh hơn
